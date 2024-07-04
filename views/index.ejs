@@ -87,7 +87,7 @@
     </style>
 </head>
 <body>
-    <h1>¿Salieron los resultados de las pruebas nacioneales?</h1>
+    <h1>¿Salieron los resultados de las pruebas nacionales?</h1>
     <strong id="isOut"><%= isOut ? "¡Sí!" : "No. :(" %></strong>
 
 
@@ -120,7 +120,7 @@
         if (alreadySubscribed) {
             $btn.classList.add("hide")
             $title.textContent = "¡Ya estás suscrito!"
-            $description.textContent = "Recibirás una notificación cuando los resultados hayan sido publicadas"
+            $description.textContent = "Recibirás una notificación cuando los resultados hayan sido publicados."
         }
 
         const publicKey = '<%= publicKey %>';
@@ -145,7 +145,7 @@
             if(alreadySubscribed){
                 $btn.classList.add("hide")
                 $title.textContent = "¡Ya estás suscrito!"
-                $description.textContent = "Recibirás una notificación cuando los resultados hayan sido publicadas"
+                $description.textContent = "Recibirás una notificación cuando los resultados hayan sido publicados"
                 return;
             }
 
