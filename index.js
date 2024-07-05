@@ -4,34 +4,10 @@ import "dotenv/config";
 import express from "express";
 import cron from "node-cron";
 import webPush from "web-push";
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { kv } from "@vercel/kv";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPeriodosEscolares, isCurrentYearOut } from "./helpers.js";
-
-class DB {
-  constructor(dbPath) {
-    this.data = new Set();
-    this.dbPath = dbPath;
-    if (existsSync(dbPath)) {
-      const data = readFileSync(dbPath, "utf-8");
-      this.data = new Set(JSON.parse(data));
-    }
-  }
-
-  add(item) {
-    this.data.add(item);
-    this.#save();
-  }
-
-  toArray() {
-    return Array.from(this.data);
-  }
-
-  #save() {
-    writeFileSync(this.dbPath, JSON.stringify(this.toArray(), null, 2));
-  }
-}
 
 if (
   !process.env.EMAIL ||
@@ -52,10 +28,6 @@ app.use(
   express.static(join(dirname(fileURLToPath(import.meta.url)), "public"))
 );
 
-const subscriptions = new DB(
-  join(dirname(fileURLToPath(import.meta.url)), "./db.json")
-);
-
 webPush.setVapidDetails(
   `mailto:${process.env.EMAIL}`,
   process.env.PUBLIC_KEY,
@@ -65,11 +37,13 @@ webPush.setVapidDetails(
 app.get("/", async (req, res) => {
   try {
     const { isOut, year } = await isCurrentYearOut();
+    const users = (await kv.get("subscriptions")) || [];
+
     res.render("index", {
       isOut,
       year,
       publicKey: process.env.PUBLIC_KEY,
-      users: subscriptions.toArray().length,
+      users: users.length,
     });
   } catch (error) {
     res
@@ -89,27 +63,33 @@ app.get("/api/periodos", async (req, res) => {
   }
 });
 
-app.post("/api/subscribe", (req, res) => {
+app.post("/api/subscribe", async (req, res) => {
   const subscription = req.body;
-  subscriptions.add(subscription);
+  const kvSubs = (await kv.get("subscriptions")) || [];
+  const subscriptions = JSON.parse(JSON.stringify(kvSubs));
+  subscriptions.push(subscription);
+  await kv.set("subscriptions", JSON.stringify(subscriptions));
   res.status(201).json({
     data: "Te has suscrito correctamente",
   });
 });
 
-function sendNotifications(payload) {
+async function sendNotifications(payload) {
   const promises = [];
-  subscriptions.data.forEach((subscription) => {
-    promises.push(
-      webPush.sendNotification(subscription, JSON.stringify(payload))
-    );
-  });
-
-  Promise.allSettled(promises)
-    .then(() => console.log("All users notificated"))
-    .catch((err) => {
-      console.error("Error sending notification:", err);
+  let subscriptions = await kv.get("subscriptions");
+  if (subscriptions) {
+    subscriptions.forEach((subscription) => {
+      promises.push(
+        webPush.sendNotification(subscription, JSON.stringify(payload))
+      );
     });
+
+    Promise.allSettled(promises)
+      .then(() => console.log("All users notificated"))
+      .catch((err) => {
+        console.error("Error sending notification:", err);
+      });
+  }
 }
 
 const cronJob = cron.schedule(process.env.CRON_JOB_PATTERN, async () => {
@@ -126,7 +106,7 @@ const cronJob = cron.schedule(process.env.CRON_JOB_PATTERN, async () => {
     console.log(`Checking... ¿Salió? ${isOut}`);
 
     if (isOut) {
-      sendNotifications(notificationPayload);
+      await sendNotifications(notificationPayload);
     }
   } catch (error) {
     console.log("Error en el cronjob");

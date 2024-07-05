@@ -23,4 +23,4 @@ Pequeño proyecto hecho en Node.js que envia una notificación en el momento en 
 - Luego de encontrar la API, creé un pequeño servidor en Node.js.
 - Al no ser nada complicado, con un motor de plantillas desde el mismo Node.js se renderiza el HTML con el CSS y JavaScript necesario.
 - Se crea las rutas necesarias para suscribir al usuario con las API's proporcionadas por el navegador. (Service Worker, Push API)
-- Los usuarios registrados por conveniencia se guardan en un archivo JSON.
+- Los usuarios registrados se almacenan en vercel kv database.
